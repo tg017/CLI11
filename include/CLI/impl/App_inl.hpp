@@ -2193,10 +2193,6 @@ App::_find_subcommand(const std::string &subc_name, bool ignore_disabled, bool i
 }
 
 CLI11_INLINE bool App::_parse_subcommand(std::vector<std::string> &args) {
-    if(_count_remaining_positionals(/* required */ true) > 0) {
-        _parse_positional(args, false);
-        return true;
-    }
     auto *com = _find_subcommand(args.back(), true, true);
     if(com == nullptr) {
         // the main way to get here is using .notation
@@ -2207,6 +2203,29 @@ CLI11_INLINE bool App::_parse_subcommand(std::vector<std::string> &args) {
                 args.back() = args.back().substr(dotloc + 1);
                 args.push_back(com->get_display_name());
             }
+        }
+    }
+    if(_count_remaining_positionals(/* required */ true) > 0) {
+        bool has_help = false;
+        if(com != nullptr) {
+            auto matches_help = [](const App *app, const std::string &arg) {
+                while(app != nullptr) {
+                    const Option *hp = app->get_help_ptr();
+                    const Option *hap = app->get_help_all_ptr();
+                    if((hp != nullptr && hp->check_name(arg)) || (hap != nullptr && hap->check_name(arg))) {
+                        return true;
+                    }
+                    app = app->get_parent();
+                }
+                return false;
+            };
+            has_help = std::any_of(args.begin(), args.end(), [&](const std::string &arg) {
+                return matches_help(this, arg) || matches_help(com, arg);
+            });
+        }
+        if(!has_help) {
+            _parse_positional(args, false);
+            return true;
         }
     }
     if(com != nullptr) {

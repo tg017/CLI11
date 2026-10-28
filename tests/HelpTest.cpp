@@ -676,6 +676,41 @@ TEST_CASE("THelp: nested_subcommand", "[help]") {
     }
 }
 
+// from https://github.com/CLIUtils/CLI11/issues/1450
+TEST_CASE("THelp: nested_subcommand_with_parent_positional", "[help]") {
+    CLI::App app{"My prog"};
+
+    auto *sub1 = app.add_subcommand("sub1", "Subcommand1 description");
+    int id{0};
+    sub1->add_option("id", id, "Sub1 ID")->required();
+
+    auto *subc2 = sub1->add_subcommand("subc2", "Second level command");
+    bool flag{false};
+    subc2->add_flag("--flag", flag, "Flag belonging to subc2");
+
+    try {
+        app.parse("sub1 subc2 --help");
+        CHECK(false);
+    } catch(const CLI::ParseError &e) {
+        std::ostringstream eout;
+        auto res = app.exit(e, eout);
+        std::string help = eout.str();
+        CHECK(res == 0);
+        CHECK_THAT(help, Contains("--flag"));
+    }
+
+    try {
+        app.parse("sub1 subc2 -h");
+        CHECK(false);
+    } catch(const CLI::ParseError &e) {
+        std::ostringstream eout;
+        auto res = app.exit(e, eout);
+        std::string help = eout.str();
+        CHECK(res == 0);
+        CHECK_THAT(help, Contains("--flag"));
+    }
+}
+
 TEST_CASE("THelp: MasterName", "[help]") {
     CLI::App app{"My prog", "MyRealName"};
 
